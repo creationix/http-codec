@@ -1,0 +1,7 @@
+{
+  "name": "min-stream-http-codec",
+  "version": "0.0.0",
+  "author": "Tim Caswell <tim@creationix.com>",
+  "main": "http-codec.js",
+  "license": "MIT"
+}
