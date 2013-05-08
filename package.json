@@ -3,5 +3,9 @@
   "version": "0.0.0",
   "author": "Tim Caswell <tim@creationix.com>",
   "main": "http-codec.js",
+  "dependencies": {
+    "min-stream-helpers": "*",
+    "buffer-tools": "*"
+  },
   "license": "MIT"
 }

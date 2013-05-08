@@ -1,4 +1,10 @@
-var helpers = require('../min-stream-helpers');
+var buf = require('buffer-tools');
+
+function syntaxError(message, array) {
+  return new SyntaxError(message + ": " +
+    JSON.stringify(buf.toString(buf.fromArray(array)))
+  );
+}
 
 var states = {
   method: function (byte, data, emit) {
@@ -9,23 +15,23 @@ var states = {
     }
     // Space
     if (byte === 0x20) {
-      data.method = bufferToString(data);
+      data.method = buf.toString(buf.fromArray(data));
       data.length = 0;
       return "path";
     }
     data.push(byte);
-    emit(new SyntaxError("Invalid method: " + JSON.stringify(bufferToString(data))));
+    emit(syntaxError("Invalid Method", data));
     return "error";
   },
   path: function (byte, data, emit) {
     if (byte === 0x20) {
-      data.path = bufferToString(data);
+      data.path = buf.fromArrayToString(data);
       data.length = 0;
       return "version";
     }
     if (byte === 0x0d || byte === 0x0a) {
       data.push(byte);
-      emit(new SyntaxError("Unexpected newline in path: " + JSON.stringify(bufferToString(data))));
+      emit(syntaxError("Unexpected newline in path", data));
       return "error";
     }
     data.push(byte);
@@ -33,9 +39,9 @@ var states = {
   },
   version: function (byte, data, emit) {
     if (byte === 0x0d) {
-      var match = bufferToString(data).match(/HTTP\/(1).([01])/);
+      var match = buf.fromArrayToString(data).match(/HTTP\/(1).([01])/);
       if (!match) {
-        emit(new SyntaxError("Invalid HTTP version string: " + JSON.stringify(bufferToString(data))));
+        emit(syntaxError("Invalid HTTP version string", data));
         return "error";
       }
       data.version = [parseInt(match[1], 10), parseInt(match[2], 10)];
@@ -61,7 +67,7 @@ var states = {
       return "error";
     }
     if (byte === 0x3a) {
-      data.headers.push(bufferToString(data));
+      data.headers.push(buf.fromArrayToString(data));
       data.length = 0;
       return "value";
     }
@@ -70,9 +76,13 @@ var states = {
   },
   value: function (byte, data, emit) {
     if (byte === 0x0d) {
-      data.headers.push(bufferToString(data));
+      data.headers.push(buf.fromArrayToString(data));
       data.length = 0;
       return "endheader";
+    }
+    if (byte === 0x20 && data.length === 0) {
+      // Ignore leading spaces in header values
+      return "value";
     }
     data.push(byte);
     return "value";
@@ -90,7 +100,7 @@ var states = {
         method: data.method,
         path: data.path,
         version: data.version,
-        headers: data.headers
+        headers: data.headers,
       });
       return "body";
     }
@@ -100,6 +110,10 @@ var states = {
   error: function (byte, data, emit) {
     emit();
     return "error";
+  },
+  body: function (byte, data, emit) {
+    data.push(byte);
+    return "body";
   }
 }
 
@@ -114,6 +128,10 @@ function decoder(emit) {
     for (var i = 0, l = chunk.length; i < l; i++) {
       state = states[state](chunk[i], data, emit);
     }
+    if (state === "body") {
+      emit(null, buf.fromArray(data));
+      data.length = 0;
+    }
   }
 }
 
@@ -124,43 +142,3 @@ function encoder(read) {
   }
 }
 
-function bufferToString(buffer) {
-  var string = "";
-  for (var i = 0, l = buffer.length; i < l; i++) {
-    string += String.fromCharCode(buffer[i]);
-  }
-  return decodeURIComponent(escape(string));
-}
-
-// Accepts a Unicode string and returns a UTF-8 encoded byte array.
-function stringToBuffer(string) {
-  string = unescape(encodeURIComponent(string));
-  var length = string.length;
-  var array = new Array(length);
-  for (var i = 0; i < length; i++) {
-    array[i] = string.charCodeAt(i);
-  }
-  return array;
-}
-
-var source = helpers.arraySource([
-  "GET ", "/ HTTP/1.", "1\r\n",
-  "User", "-Agent: c", "url/7.26.0\r\n",
-  "Host", ": creatio", "nix.com\r\n",
-  "Acce", "pt: */*\r", "\n\r\n"
-].map(stringToBuffer));
-
-var source2 = helpers.arraySource([
-  "PUT /upload HTTP/1.1\r\nUser-Agent: curl/7.26.0",
-  "\r\nHost: localhost:3000\r\nAccept: */*\r\nConte",
-  "nt-Length: 105\r\nContent-Type: application/x-www",
-  "-form-urlencoded\r\n\r\nmin-stream-http-codec=====",
-  "================A HTTP parser and encoder packaged ",
-  "as a min-stream pull-filter."
-].map(stringToBuffer));
-
-helpers.sink(onEvent)(helpers.pushToPull(decoder)(source));
-function onEvent(err, event) {
-  if (err) throw err;
-  console.log("event", arguments);
-}
