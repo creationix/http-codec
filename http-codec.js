@@ -11,7 +11,7 @@ var states = {
     // Capital letter
     if (byte > 0x40 && byte <= 0x5a) {
       data.push(byte);
-      return "method"
+      return "method";
     }
     // Space
     if (byte === 0x20) {
@@ -115,7 +115,7 @@ var states = {
     data.push(byte);
     return "body";
   }
-}
+};
 
 exports.decoder = decoder;
 function decoder(emit) {
@@ -128,11 +128,11 @@ function decoder(emit) {
     for (var i = 0, l = chunk.length; i < l; i++) {
       state = states[state](chunk[i], data, emit);
     }
-    if (state === "body") {
+    if (state === "body" && data.length) {
       emit(null, buf.fromArray(data));
       data.length = 0;
     }
-  }
+  };
 }
 
 exports.encoder = encoder;
