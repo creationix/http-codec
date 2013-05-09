@@ -1,3 +1,5 @@
+"use strict";
+
 var buf = require('buffer-tools');
 
 function syntaxError(message, array) {
@@ -74,7 +76,7 @@ var states = {
     data.push(byte);
     return "key";
   },
-  value: function (byte, data, emit) {
+  value: function (byte, data) {
     if (byte === 0x0d) {
       data.headers.push(buf.fromArrayToString(data));
       data.length = 0;
@@ -111,7 +113,7 @@ var states = {
     emit();
     return "error";
   },
-  body: function (byte, data, emit) {
+  body: function (byte, data) {
     data.push(byte);
     return "body";
   }
