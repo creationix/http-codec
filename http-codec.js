@@ -1,10 +1,10 @@
 "use strict";
 
-var buf = require('buffer-tools');
+var bops = require('bops');
 
 function syntaxError(message, array) {
   return new SyntaxError(message + ": " +
-    JSON.stringify(buf.toString(buf.fromArray(array)))
+    JSON.stringify(bops.to(bops.from(array)))
   );
 }
 
@@ -17,7 +17,7 @@ var states = {
     }
     // Space
     if (byte === 0x20) {
-      data.method = buf.toString(buf.fromArray(data));
+      data.method = bops.to(bops.from(data));
       data.length = 0;
       return "path";
     }
@@ -27,7 +27,7 @@ var states = {
   },
   path: function (byte, data, emit) {
     if (byte === 0x20) {
-      data.path = buf.fromArrayToString(data);
+      data.path = bops.to(bops.from(data));
       data.length = 0;
       return "version";
     }
@@ -41,7 +41,7 @@ var states = {
   },
   version: function (byte, data, emit) {
     if (byte === 0x0d) {
-      var match = buf.fromArrayToString(data).match(/HTTP\/(1).([01])/);
+      var match = bops.to(bops.from(data)).match(/HTTP\/(1).([01])/);
       if (!match) {
         emit(syntaxError("Invalid HTTP version string", data));
         return "error";
@@ -69,7 +69,7 @@ var states = {
       return "error";
     }
     if (byte === 0x3a) {
-      data.headers.push(buf.fromArrayToString(data));
+      data.headers.push(bops.to(bops.from(data)));
       data.length = 0;
       return "value";
     }
@@ -78,7 +78,7 @@ var states = {
   },
   value: function (byte, data) {
     if (byte === 0x0d) {
-      data.headers.push(buf.fromArrayToString(data));
+      data.headers.push(bops.to(bops.from(data)));
       data.length = 0;
       return "endheader";
     }
@@ -125,17 +125,20 @@ function decoder(emit) {
   var state = "method";
   var data = [];
 
-  return function (err, chunk) {
+  var fn = function (err, chunk) {
     if (chunk === undefined) return emit(err);
     for (var i = 0, l = chunk.length; i < l; i++) {
       state = states[state](chunk[i], data, emit);
     }
     if (state === "body" && data.length) {
-      emit(null, buf.fromArray(data));
+      emit(null, bops.from(data));
       data.length = 0;
     }
   };
+  fn.is = "min-stream-write";
+  return fn;
 }
+decoder.is = "min-stream-push-filter";
 
 var STATUS_CODES = {
   '100': 'Continue',
@@ -195,12 +198,12 @@ var STATUS_CODES = {
 
 exports.encoder = encoder;
 function encoder(emit) {
-  return function (err, item) {
+  var fn = function (err, item) {
     if (item === undefined) return emit(err);
     if (typeof item === "string") {
-      return emit(null, buf.fromString(item));
+      return emit(null, bops.from(item));
     }
-    if (buf.isBuffer(item)) {
+    if (bops.is(item)) {
       return emit(null, item);
     }
     var head = "HTTP/1.1 " + item.statusCode + " " + STATUS_CODES[item.statusCode] + "\r\n";
@@ -208,7 +211,9 @@ function encoder(emit) {
       head += item.headers[i] + ": " + item.headers[i + 1] + "\r\n";
     }
     head += "\r\n";
-    emit(null, buf.fromString(head));
+    emit(null, bops.from(head));
   };
+  fn.is = "min-stream-write";
+  return fn;
 }
-
+encoder.is = "min-stream-push-filter";
