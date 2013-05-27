@@ -1,6 +1,6 @@
 {
-  "name": "min-stream-http-codec",
-  "version": "0.0.0",
+  "name": "http-codec",
+  "version": "0.0.1",
   "author": "Tim Caswell <tim@creationix.com>",
   "main": "http-codec.js",
   "dependencies": {
