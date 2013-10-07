@@ -1,10 +1,7 @@
 {
   "name": "http-codec",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Tim Caswell <tim@creationix.com>",
   "main": "http-codec.js",
-  "dependencies": {
-    "bops": "~0.0.5"
-  },
   "license": "MIT"
 }
