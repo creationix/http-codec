@@ -13,7 +13,14 @@ module.exports = {
 
 function serverEncoder(write) {
   return function (res) {
-    throw "TODO: Implement serverEncoder";
+    if (res === undefined) return write(undefined);
+    if (binary.isBinary(res)) return write(res);
+    var head = "HTTP/1.1 " + res.code + " " + STATUS_CODES[res.code] + "\r\n";
+    res.headers.forEach(function (pair) {
+      head += pair[0] + ": " + pair[1] + "\r\n";
+    });
+    head += "\r\n";
+    write(binary.fromUnicode(head));
   };
 }
 
