@@ -1,17 +1,14 @@
-var bops, HTTP1_1;
-module.exports = function (platform) {
-  bops = platform.bops;
-  HTTP1_1 = bops.from("HTTP/1.1");
-  return {
-    server: {
-      encoder: serverEncoder,
-      decoder: serverDecoder,
-    },
-    client: {
-      encoder: clientEncoder,
-      decoder: clientDecoder,
-    },
-  };
+var binary = require('bodec');
+var HTTP1_1 = binary.fromUnicode("HTTP/1.1");
+module.exports = {
+  server: {
+    encoder: serverEncoder,
+    decoder: serverDecoder,
+  },
+  client: {
+    encoder: clientEncoder,
+    decoder: clientDecoder,
+  },
 };
 
 function serverEncoder(write) {
@@ -23,13 +20,13 @@ function serverEncoder(write) {
 function clientEncoder(write) {
   return function (req) {
     if (req === undefined) return write(undefined);
-    if (bops.is(req)) return write(req);
+    if (binary.isBinary(req)) return write(req);
     var head = req.method + " " + req.path + " HTTP/1.1\r\n";
     req.headers.forEach(function (pair) {
       head += pair[0] + ": " + pair[1] + "\r\n";
     });
     head += "\r\n";
-    write(bops.from(head));
+    write(binary.fromUnicode(head));
   };
 }
 
@@ -46,27 +43,30 @@ function parser(client, emit) {
   var key = "", value = "";
   var chunked = false, length;
   var headers = [];
-  var $start = client ? $client : $server;
+  var method = "", path = "";
+  var $start = client ? $version : $server;
   var state = $start;
   return function (chunk) {
     if (chunk === undefined) return emit();
+    console.log("chunk", chunk.length,[binary.toUnicode(chunk)])
     if (!state) return emit(chunk);
     var i = 0, length = chunk.length;
     while (i < length) {
+      console.log(state.name, i, chunk[i].toString(16), position);
       state = state(chunk[i++]);
       if (state) continue;
-      emit(bops.subarray(chunk, i));
+      emit(binary.slice(chunk, i));
       break;
     }
   };
 
-  function $client(byte) {
-    if (byte === HTTP1_1[position++]) return $client;
-    if (byte === 0x20 && position === 9) {
-      position = 0;
-      return $code;
+  function $version(byte) {
+    if (byte === HTTP1_1[position++]) return $version;
+    if (position === 9) {
+      if (client && byte === 0x20) return $code;
+      if (!client && byte === 0x0d) return $newline;
     }
-    throw new SyntaxError("Must be HTTP/1.1 response");
+    throw new SyntaxError("Must be HTTP/1.1");
   }
 
   function $code(byte) {
@@ -88,7 +88,25 @@ function parser(client, emit) {
   }
 
   function $server(byte) {
-    throw "TODO: Implement server-side parser";
+    if (byte > 0x40 && byte <= 0x5a) { // Capital letter for method
+      method += String.fromCharCode(byte);
+      return $server;
+    }
+    if (!method) throw new SyntaxError("Missing HTTP method");
+    if (byte === 0x20) return $url;
+    throw new SyntaxError("Invalid HTTP method");
+  }
+
+  function $url(byte) {
+    if (byte !== 0x20) {
+      path += String.fromCharCode(byte);
+      return $url;
+    }
+    console.log({
+      method: method,
+      path: path
+    });
+    return $version;
   }
 
   function $newline(byte) {
@@ -130,12 +148,23 @@ function parser(client, emit) {
 
   function $ending(byte) {
     if (byte === 0x0a) {
-      emit({
-        code: code,
-        headers: headers
-      });
+      if (client) {
+        emit({
+          code: code,
+          headers: headers
+        });
+        code = 0;
+      }
+      else {
+        emit({
+          method: method,
+          path: path,
+          headers: headers
+        });
+        method = "";
+        path = "";
+      }
       headers = [];
-      code = 0;
       if (chunked) return chunkMachine(emit, $start);
       return null;
     }
@@ -161,7 +190,7 @@ function chunkMachine(emit, $start) {
   function $chunkStart(byte) {
     if (byte === 0x0a) {
       if (size) {
-        chunk = bops.create(size);
+        chunk = binary.create(size);
         return $chunk;
       }
       return $ending;
