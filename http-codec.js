@@ -48,11 +48,9 @@ function parser(client, emit) {
   var state = $start;
   return function (chunk) {
     if (chunk === undefined) return emit();
-    console.log("chunk", chunk.length,[binary.toUnicode(chunk)])
     if (!state) return emit(chunk);
     var i = 0, length = chunk.length;
     while (i < length) {
-      console.log(state.name, i, chunk[i].toString(16), position);
       state = state(chunk[i++]);
       if (state) continue;
       emit(binary.slice(chunk, i));
@@ -102,10 +100,6 @@ function parser(client, emit) {
       path += String.fromCharCode(byte);
       return $url;
     }
-    console.log({
-      method: method,
-      path: path
-    });
     return $version;
   }
 
