@@ -230,34 +230,6 @@ function chunkMachine(emit, $start) {
 
 }
 
-
-// exports.encoder = encoder;
-// function encoder(emit) {
-//   var fn = function (err, item) {
-//     if (item === undefined) return emit(err);
-//     if (typeof item === "string") {
-//       return emit(null, bops.from(item));
-//     }
-//     if (bops.is(item)) {
-//       return emit(null, item);
-//     }
-//     var head = "HTTP/1.1 " + item.statusCode + " " + STATUS_CODES[item.statusCode] + "\r\n";
-//     for (var i = 0, l = item.headers.length; i < l; i += 2) {
-//       head += item.headers[i] + ": " + item.headers[i + 1] + "\r\n";
-//     }
-//     head += "\r\n";
-//     emit(null, bops.from(head));
-//   };
-//   fn.is = "min-stream-write";
-//   return fn;
-// }
-// encoder.is = "min-stream-push-filter";
-// function syntaxError(message, array) {
-//   return new SyntaxError(message + ": " +
-//     JSON.stringify(bops.to(bops.from(array)))
-//   );
-// }
-
 var STATUS_CODES = {
   '100': 'Continue',
   '101': 'Switching Protocols',
