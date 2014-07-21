@@ -1,3 +1,5 @@
+"use strict";
+
 var binary = require('bodec');
 var HTTP1_1 = binary.fromUnicode("HTTP/1.1");
 module.exports = {
