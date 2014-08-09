@@ -5,6 +5,6 @@
   "main": "http-codec.js",
   "license": "MIT",
   "dependencies": {
-    "bodec": "~0.0.1"
+    "bodec": "^0.1.0"
   }
 }
