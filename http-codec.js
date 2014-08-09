@@ -56,7 +56,7 @@ function parser(client, emit) {
   var $start = client ? $version : $server;
   var state = $start;
   return function (chunk) {
-    if (chunk === undefined) return emit();
+    if (chunk === undefined) return emit(undefined);
     if (!state) return emit(chunk);
     var i = 0, length = chunk.length;
     while (i < length) {
