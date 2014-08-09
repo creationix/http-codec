@@ -1,7 +1,7 @@
 "use strict";
 
-var binary = require('bodec');
-var HTTP1_1 = binary.fromUnicode("HTTP/1.1");
+var bodec = require('bodec');
+var HTTP1_1 = bodec.fromUnicode("HTTP/1.1");
 module.exports = {
   server: {
     encoder: serverEncoder,
@@ -16,26 +16,26 @@ module.exports = {
 function serverEncoder(write) {
   return function (res) {
     if (res === undefined) return write(undefined);
-    if (binary.isBinary(res)) return write(res);
+    if (bodec.isBinary(res)) return write(res);
     var head = "HTTP/1.1 " + res.code + " " + STATUS_CODES[res.code] + "\r\n";
     res.headers.forEach(function (pair) {
       head += pair[0] + ": " + pair[1] + "\r\n";
     });
     head += "\r\n";
-    write(binary.fromUnicode(head));
+    write(bodec.fromUnicode(head));
   };
 }
 
 function clientEncoder(write) {
   return function (req) {
     if (req === undefined) return write(undefined);
-    if (binary.isBinary(req)) return write(req);
+    if (bodec.isBinary(req)) return write(req);
     var head = req.method + " " + req.path + " HTTP/1.1\r\n";
     req.headers.forEach(function (pair) {
       head += pair[0] + ": " + pair[1] + "\r\n";
     });
     head += "\r\n";
-    write(binary.fromUnicode(head));
+    write(bodec.fromUnicode(head));
   };
 }
 
@@ -62,7 +62,7 @@ function parser(client, emit) {
     while (i < length) {
       state = state(chunk[i++]);
       if (state) continue;
-      emit(binary.slice(chunk, i));
+      if (i < chunk.length) emit(bodec.slice(chunk, i));
       break;
     }
   };
@@ -193,7 +193,7 @@ function chunkMachine(emit, $start) {
   function $chunkStart(byte) {
     if (byte === 0x0a) {
       if (size) {
-        chunk = binary.create(size);
+        chunk = bodec.create(size);
         return $chunk;
       }
       return $ending;
@@ -221,7 +221,7 @@ function chunkMachine(emit, $start) {
       next = $len;
     }
     else {
-      emit();
+      emit(undefined);
       next = $start;
     }
     chunk = null;
